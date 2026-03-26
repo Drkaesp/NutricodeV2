@@ -50,13 +50,27 @@ export default function Onboarding() {
   const handleConfirm = async () => {
     if (!nivelAtividade) return;
     try {
+      // Converter nascimento (DD/MM/AAAA) para idade em anos
+      const partesData = nascimento.split('/');
+      const dataNasc = new Date(
+        parseInt(partesData[2]),
+        parseInt(partesData[1]) - 1,
+        parseInt(partesData[0])
+      );
+      const hoje = new Date();
+      let idade = hoje.getFullYear() - dataNasc.getFullYear();
+      const mesAtual = hoje.getMonth() - dataNasc.getMonth();
+      if (mesAtual < 0 || (mesAtual === 0 && hoje.getDate() < dataNasc.getDate())) {
+        idade--;
+      }
+
       await updateUser({
         peso: parseFloat(peso),
         altura: parseFloat(altura),
-        nascimento,
-        genero: genero as any,
-        objetivo: objetivo as any,
-        nivelAtividade: nivelAtividade as any,
+        idade,
+        sexo: genero,
+        objetivo,
+        nivelAtividade,
       });
       router.replace('/(panel)/home/page' as any);
     } catch (e) {

@@ -1,18 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import { FOOD_DATABASE, FoodItem, MEAL_SLOTS } from '@/constants/GameData';
+import { FoodItem, MEAL_SLOTS } from '@/constants/GameData';
 import { getMealPlan, saveMealPlan, MealFood } from '@/src/utils/storage';
+import { searchAlimentos } from '@/src/services/alimentosApi';
 
 export default function AlimentacaoEdit() {
   const router = useRouter();
   const { day, slot } = useLocalSearchParams<{ day: string; slot: string }>();
   const [search, setSearch] = useState('');
   const [currentFoods, setCurrentFoods] = useState<MealFood[]>([]);
+  const [filteredFoods, setFilteredFoods] = useState<FoodItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const slotLabel = MEAL_SLOTS.find((s) => s.key === slot)?.label || 'Refeição';
 
@@ -30,9 +35,32 @@ export default function AlimentacaoEdit() {
     }
   }
 
-  const filteredFoods = search.length > 1
-    ? FOOD_DATABASE.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
-    : [];
+  /** Debounced API search — fires 300ms after the user stops typing */
+  function handleSearchChange(text: string) {
+    setSearch(text);
+    setSearchError('');
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (text.trim().length < 2) {
+      setFilteredFoods([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchAlimentos(text);
+        setFilteredFoods(results);
+      } catch (err) {
+        setSearchError('Não foi possível buscar alimentos. Verifique sua conexão.');
+        setFilteredFoods([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }
 
   async function addFood(item: FoodItem) {
     const grams = 100;
@@ -95,21 +123,30 @@ export default function AlimentacaoEdit() {
           placeholder="Buscar alimentos..."
           placeholderTextColor={Colors.textMuted}
           value={search}
-          onChangeText={setSearch}
+          onChangeText={handleSearchChange}
         />
+        {isSearching && <ActivityIndicator size="small" color={Colors.brandAccent} style={{ marginRight: 8 }} />}
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
+          <TouchableOpacity onPress={() => { setSearch(''); setFilteredFoods([]); setSearchError(''); }}>
             <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Search Error */}
+        {searchError.length > 0 && (
+          <View style={styles.errorWrap}>
+            <Ionicons name="cloud-offline" size={18} color={Colors.statusError} />
+            <Text style={styles.errorText}>{searchError}</Text>
+          </View>
+        )}
+
         {/* Search Results */}
         {filteredFoods.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resultados ({filteredFoods.length})</Text>
-            {filteredFoods.slice(0, 15).map((item) => (
+            {filteredFoods.slice(0, 20).map((item) => (
               <TouchableOpacity key={item.id} style={styles.resultCard} onPress={() => addFood(item)} activeOpacity={0.7}>
                 <View style={styles.resultIcon}>
                   <Ionicons name={item.icon as any} size={20} color={Colors.brandAccent} />
@@ -117,10 +154,10 @@ export default function AlimentacaoEdit() {
                 <View style={styles.resultInfo}>
                   <Text style={styles.resultName}>{item.name}</Text>
                   <View style={styles.resultMacros}>
-                    <Text style={styles.macroChip}>{item.kcal} kcal</Text>
-                    <Text style={styles.macroDetail}>P: {item.protein}g</Text>
-                    <Text style={styles.macroDetail}>C: {item.carbs}g</Text>
-                    <Text style={styles.macroDetail}>G: {item.fat}g</Text>
+                    <Text style={styles.macroChip}>{Math.round(item.kcal)} kcal</Text>
+                    <Text style={styles.macroDetail}>P: {item.protein.toFixed(1)}g</Text>
+                    <Text style={styles.macroDetail}>C: {item.carbs.toFixed(1)}g</Text>
+                    <Text style={styles.macroDetail}>G: {item.fat.toFixed(1)}g</Text>
                   </View>
                 </View>
                 <Ionicons name="add-circle" size={28} color={Colors.brandGreen} />
@@ -209,6 +246,16 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, color: Colors.textPrimary, paddingVertical: 12, fontSize: 16, marginLeft: 8 },
   scroll: { paddingHorizontal: 16 },
   section: { marginBottom: 20 },
+  errorWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.statusError + '15',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  errorText: { ...Typography.caption, color: Colors.statusError, flex: 1 },
   sectionTitle: { ...Typography.captionBold, color: Colors.textSecondary, marginBottom: 10, textTransform: 'uppercase' as any, letterSpacing: 0.5 },
   resultCard: {
     flexDirection: 'row',
