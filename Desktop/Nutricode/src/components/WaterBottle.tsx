@@ -41,7 +41,6 @@ export default function GarrafaAguaProcedimental({
 
   // Animação de Entrada e Loops Senoidais Contínuos
   useEffect(() => {
-    // Escalonamento numérico estendido elástico gradual (Ascensão da Água)
     Animated.timing(motorElevacaoFluido, {
       toValue: alturaFluidoGeometrica,
       duration: 1200,
@@ -49,23 +48,19 @@ export default function GarrafaAguaProcedimental({
       useNativeDriver: false,
     }).start();
 
-    // Comportamento senoidal contínuo na superfície plana da estrutura (Math.sin simulado por rotação)
+    // Ondulação mais calma e estável
     Animated.loop(
-      Animated.timing(motorOndaUm, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
+      Animated.sequence([
+        Animated.timing(motorOndaUm, { toValue: 1, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(motorOndaUm, { toValue: 0, duration: 8000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
     ).start();
 
     Animated.loop(
-      Animated.timing(motorOndaDois, {
-        toValue: 1,
-        duration: 4000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
+      Animated.sequence([
+        Animated.timing(motorOndaDois, { toValue: 1, duration: 10000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(motorOndaDois, { toValue: 0, duration: 10000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
     ).start();
   }, [alturaFluidoGeometrica]);
 
@@ -73,20 +68,12 @@ export default function GarrafaAguaProcedimental({
   const [entidadesBiologicas, setEntidadesBiologicas] = useState<{ id: string; tipo: string; left: string; top: string; size: number; delay: number }[]>([]);
 
   useEffect(() => {
-    // Algoritmo de injeção biológica estocástica
     let poolFauna: string[] = [];
-
-    // Camada Primeira Limítrofe (Até 1000ml = 1L)
     if (volumeAtualMl > 0) poolFauna = [...poolFauna, ...FAUNA_NIVEL_1];
-    
-    // Camada Intermediária Central (Acima de 1000ml)
     if (volumeAtualMl >= 1000) poolFauna = [...poolFauna, ...FAUNA_NIVEL_2];
-    
-    // Camada Submersa Abissal Complexa (Acima de 2000ml)
     if (volumeAtualMl >= 2000) poolFauna = [...poolFauna, ...FAUNA_NIVEL_3];
 
-    // Gerar entidades fixadas visualmente na matriz hídrica atual
-    const maxEntidades = Math.floor(volumeAtualMl / 250); // Uma entidade a cada 250ml
+    const maxEntidades = Math.floor(volumeAtualMl / 250);
     const novasEntidades = [];
     
     for (let i = 0; i < maxEntidades; i++) {
@@ -95,26 +82,57 @@ export default function GarrafaAguaProcedimental({
         novasEntidades.push({
             id: `fauna_${i}`,
             tipo: tipoAleatorio,
-            left: `${10 + Math.random() * 60}%`, // Dentro das margens internas
-            // O Spawn top varia mas respeita o nível da água
-            top: `${Math.random() * 80}%`,
-            size: 14 + Math.random() * 12,
+            left: `${10 + Math.random() * 60}%`, 
+            top: `${10 + Math.random() * 70}%`, // Ensure not too high
+            size: 16 + Math.random() * 12,
             delay: Math.random() * 2000,
         });
     }
     setEntidadesBiologicas(novasEntidades);
   }, [volumeAtualMl]);
 
-  // Interpolação Trigonométrica Rotacional
+  // Interpolação Orgânica mais Estável
   const rotacaoOndaAtiva = motorOndaUm.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ['-5deg', '5deg'],
   });
   
   const rotacaoOndaPassiva = motorOndaDois.interpolate({
     inputRange: [0, 1],
-    outputRange: ['360deg', '0deg'],
+    outputRange: ['5deg', '-5deg'],
   });
+
+  // Componente interno para natação assíncrona dos peixes
+  const PeixeNadador = ({ biota }: { biota: any }) => {
+    const motorX = useRef(new Animated.Value(0)).current;
+    
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(motorX, { toValue: larguraCilindro * 0.5, duration: 4000 + biota.delay, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+                Animated.timing(motorX, { toValue: -larguraCilindro * 0.2, duration: 4000 + biota.delay, easing: Easing.inOut(Easing.sin), useNativeDriver: true })
+            ])
+        ).start();
+    }, []);
+
+    // Calcula uma direção baseada na variação para ver se ele inverte
+    const scaleX = motorOndaUm.interpolate({ inputRange: [0, 1], outputRange: [1, -1] });
+
+    return (
+        <Animated.Text 
+            style={{
+                position: 'absolute',
+                top: biota.top,
+                left: biota.left,
+                fontSize: biota.size,
+                opacity: 0.9,
+                transform: [{ translateX: motorX }] // Apenas flutua suave lateralmente
+            }}
+        >
+            {biota.tipo}
+        </Animated.Text>
+    );
+  };
 
   return (
     <View style={[estilos.gradeIsoladaRaiz, { width: escalaGeometrica, height: escalaGeometrica + 40 }]}>
@@ -142,8 +160,8 @@ export default function GarrafaAguaProcedimental({
             <Animated.View style={[
                 estilos.ondaSenoidalProcedimental, 
                 { 
-                    backgroundColor: 'rgba(56, 189, 248, 0.4)', // Cyan suave
-                    transform: [{ rotate: rotacaoOndaAtiva }, { translateY: -larguraCilindro * 0.6 }] 
+                    backgroundColor: 'rgba(56, 189, 248, 0.45)',
+                    transform: [{ rotate: rotacaoOndaAtiva }] 
                 }
             ]} />
              {/* Onda 2 (Senoide Passiva Contrafásica) */}
@@ -151,26 +169,14 @@ export default function GarrafaAguaProcedimental({
                 estilos.ondaSenoidalProcedimental, 
                 { 
                     backgroundColor: Colors.waterMedium,
-                    transform: [{ rotate: rotacaoOndaPassiva }, { translateY: -larguraCilindro * 0.55 }] 
+                    transform: [{ rotate: rotacaoOndaPassiva }] 
                 }
             ]} />
 
             {/* Ecossistema Interligado Autômato */}
             <View style={StyleSheet.absoluteFill}>
               {entidadesBiologicas.map((biota) => (
-                  // Usando animacoes em CSS ou Animated locais para respiração vitalícia
-                  <Animated.Text 
-                      key={biota.id}
-                      style={{
-                          position: 'absolute',
-                          left: biota.left as any,
-                          top: biota.top as any,
-                          fontSize: biota.size,
-                          opacity: 0.85,
-                      }}
-                  >
-                      {biota.tipo}
-                  </Animated.Text>
+                  <PeixeNadador key={biota.id} biota={biota} />
               ))}
             </View>
 
@@ -209,51 +215,54 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
   },
   tampaGeometrica: {
-    backgroundColor: Colors.waterBackground,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+    backgroundColor: '#cbd5e1',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     borderWidth: 2,
-    borderColor: Colors.surfaceCardsLight,
+    borderColor: '#94a3b8',
     borderBottomWidth: 0,
     alignItems: 'center',
     justifyContent: 'flex-start',
+    shadowColor: Colors.brandAccent,
+    elevation: 4,
   },
   tampaAcoplada: {
-    height: 8,
-    backgroundColor: Colors.surfaceCardsLight,
-    borderRadius: 4,
+    height: 14,
+    backgroundColor: '#94a3b8',
+    borderRadius: 8,
     position: 'absolute',
-    top: -6,
+    top: -10,
   },
   corpoCilindrico: {
-    backgroundColor: Colors.backgroundPrimary, // Limpo para o contraste fluindo
-    borderRadius: 16,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    borderWidth: 2,
-    borderColor: Colors.surfaceCardsLight,
-    overflow: 'hidden', // Segredo para o corte da onda elástica
+    backgroundColor: 'rgba(255,255,255,0.05)', // Aspecto de vidro fosco
+    borderRadius: 40, // Base mais orgânica e arredondada
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
+    overflow: 'hidden', 
     position: 'relative',
     justifyContent: 'flex-end',
+    shadowColor: Colors.waterMedium,
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 8,
   },
   matrizSubmersaAnimada: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.waterDark, // Base funda
-    borderBottomLeftRadius: 14,
-    borderBottomRightRadius: 14,
+    backgroundColor: 'transparent', 
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
   },
   ondaSenoidalProcedimental: {
     position: 'absolute',
-    // O motor senoide simulado na UI Reativa usa um quadrado massivo rodando
-    width: 600,
-    height: 600,
+    width: 300,
+    height: 100,
     left: '50%',
-    marginLeft: -300,
-    top: 0, // Ancorado ao topo do fluido
-    borderRadius: 240, // O "Squircle" que emula a onda orgânica
+    marginLeft: -150,
+    top: -10, 
+    borderRadius: 50, 
   },
   balizaMedicao: {
     position: 'absolute',

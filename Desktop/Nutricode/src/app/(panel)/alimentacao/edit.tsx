@@ -37,9 +37,31 @@ export default function AlimentacaoEdit() {
     setLoading(false);
   }
 
-  const filteredFoods = search.length > 1
-    ? apiFoods.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
-    : [];
+  const filteredFoods = search.trim() === ''
+    ? apiFoods
+    : apiFoods.filter((f) => f.name.toLowerCase().includes(search.trim().toLowerCase()));
+
+  async function updateGrams(index: number, delta: number) {
+    const updatedFoods = [...currentFoods];
+    const novaGrama = Math.max(10, updatedFoods[index].grams + delta); // Minímo 10g
+    const multiplicador = novaGrama / updatedFoods[index].grams;
+    
+    updatedFoods[index] = {
+      ...updatedFoods[index],
+      grams: novaGrama,
+      kcal: updatedFoods[index].kcal * multiplicador,
+      protein: updatedFoods[index].protein * multiplicador,
+      carbs: updatedFoods[index].carbs * multiplicador,
+      fat: updatedFoods[index].fat * multiplicador,
+    };
+    
+    setCurrentFoods(updatedFoods);
+    const plan = await getMealPlan();
+    if (day && slot) {
+      (plan[day] as any)[slot] = { foods: updatedFoods };
+      await saveMealPlan(plan);
+    }
+  }
 
   async function addFood(item: FoodItem) {
     const grams = 100;
@@ -118,7 +140,7 @@ export default function AlimentacaoEdit() {
         ) : filteredFoods.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resultados ({filteredFoods.length})</Text>
-            {filteredFoods.slice(0, 15).map((item) => (
+            {filteredFoods.slice(0, 50).map((item) => (
               <TouchableOpacity key={item.id} style={styles.resultCard} onPress={() => addFood(item)} activeOpacity={0.7}>
                 <View style={styles.resultIcon}>
                   <Ionicons name={item.icon as any} size={20} color={Colors.brandAccent} />
@@ -152,11 +174,22 @@ export default function AlimentacaoEdit() {
                 <View style={styles.foodCardInfo}>
                   <Text style={styles.foodCardName}>{food.name}</Text>
                   <Text style={styles.foodCardMacros}>
-                    {food.grams}g • {Math.round(food.kcal)} kcal • P: {food.protein}g • C: {food.carbs}g • G: {food.fat}g
+                    {food.grams}g • {Math.round(food.kcal)} kcal • P: {Math.round(food.protein)}g • C: {Math.round(food.carbs)}g • G: {Math.round(food.fat)}g
                   </Text>
                 </View>
+                
+                <View style={{flexDirection: 'row', alignItems: 'center', marginRight: 10, gap: 10}}>
+                  <TouchableOpacity onPress={() => updateGrams(index, -10)} style={styles.adjustBtn}>
+                    <Ionicons name="remove-circle-outline" size={24} color={Colors.brandAccent} />
+                  </TouchableOpacity>
+                  <Text style={{...Typography.bodyBold, color: Colors.textPrimary}}>{food.grams}g</Text>
+                  <TouchableOpacity onPress={() => updateGrams(index, 10)} style={styles.adjustBtn}>
+                    <Ionicons name="add-circle-outline" size={24} color={Colors.brandGreen} />
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity onPress={() => removeFood(index)} style={styles.removeBtn}>
-                  <Ionicons name="trash-outline" size={18} color={Colors.statusError} />
+                  <Ionicons name="trash-outline" size={20} color={Colors.statusError} />
                 </TouchableOpacity>
               </View>
             ))
@@ -258,6 +291,7 @@ const styles = StyleSheet.create({
   foodCardInfo: { flex: 1 },
   foodCardName: { ...Typography.bodyBold, color: Colors.textPrimary },
   foodCardMacros: { ...Typography.caption, color: Colors.textSecondary, marginTop: 4 },
+  adjustBtn: { padding: 4 },
   removeBtn: { padding: 8 },
   footer: {
     position: 'absolute',

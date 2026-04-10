@@ -101,7 +101,7 @@ export default function Onboarding() {
               <View style={styles.inputRow}>
                 <View style={[styles.inputWrapper, { flex: 1, marginRight: 8 }]}>
                   <Ionicons name="scale-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-                  <TextInput style={styles.input} placeholder="Peso (kg)" placeholderTextColor={Colors.textMuted} value={peso} onChangeText={setPeso} keyboardType="numeric" />
+                  <TextInput style={styles.input} placeholder="Peso (kg)" placeholderTextColor={Colors.textMuted} value={peso} onChangeText={setPeso} keyboardType="numeric" maxLength={3} />
                 </View>
                 <View style={[styles.inputWrapper, { flex: 1, marginLeft: 8 }]}>
                   <Ionicons name="resize-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
@@ -111,7 +111,20 @@ export default function Onboarding() {
 
               <View style={styles.inputWrapper}>
                 <Ionicons name="calendar-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-                <TextInput style={styles.input} placeholder="Nascimento (DD/MM/AAAA)" placeholderTextColor={Colors.textMuted} value={nascimento} onChangeText={setNascimento} keyboardType="numeric" />
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="Nascimento (DD/MM/AAAA)" 
+                  placeholderTextColor={Colors.textMuted} 
+                  value={nascimento} 
+                  onChangeText={(t) => {
+                    let val = t.replace(/\D/g, '');
+                    if(val.length > 2) val = val.substring(0,2) + '/' + val.substring(2);
+                    if(val.length > 5) val = val.substring(0,5) + '/' + val.substring(5, 9);
+                    setNascimento(val);
+                  }} 
+                  keyboardType="numeric" 
+                  maxLength={10} 
+                />
               </View>
 
               <Text style={styles.sectionLabel}>Gênero</Text>

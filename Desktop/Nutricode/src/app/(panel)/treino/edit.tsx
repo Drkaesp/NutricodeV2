@@ -51,10 +51,18 @@ export default function TreinoEdit() {
   }
 
   const filtered = apiExercises.filter((ex) => {
-    const matchSearch = search.length < 2 || ex.name.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = search.trim() === '' || ex.name.toLowerCase().includes(search.trim().toLowerCase());
     const matchFilter = filter === 'all' || ex.muscleGroup === filter;
     return matchSearch && matchFilter;
   });
+
+  const groupedExercises: Record<string, (Exercise & { images: string[] })[]> = {};
+  if (filter === 'all') {
+    filtered.forEach(ex => {
+      if (!groupedExercises[ex.muscleGroup]) groupedExercises[ex.muscleGroup] = [];
+      groupedExercises[ex.muscleGroup].push(ex);
+    });
+  }
 
   async function addExercise(ex: Exercise & { images: string[] }) {
     const newEx: WorkoutExercise = {
@@ -76,6 +84,32 @@ export default function TreinoEdit() {
   }
 
   const alreadyAdded = new Set(currentExercises.map((e) => e.exerciseId));
+
+  const renderExercise = (ex: Exercise & { images: string[] }) => {
+    const added = alreadyAdded.has(ex.id);
+    return (
+      <View key={ex.id} style={[styles.exCard, added && styles.exCardAdded]}>
+        <View style={styles.exIcon}>
+          <Ionicons name={ex.icon as any} size={22} color={added ? Colors.brandGreen : Colors.brandAccent} />
+        </View>
+        <View style={styles.exInfo}>
+          <Text style={styles.exName}>{ex.name}</Text>
+          <View style={styles.exMeta}>
+            <Text style={styles.exMuscle}>{MUSCLE_GROUP_LABELS[ex.muscleGroup]}</Text>
+            <Text style={styles.exEquip}>{ex.equipment}</Text>
+            <Text style={styles.exDefault}>{ex.defaultSets}x{ex.defaultReps}</Text>
+          </View>
+        </View>
+        {added ? (
+          <Ionicons name="checkmark-circle" size={26} color={Colors.brandGreen} />
+        ) : (
+          <TouchableOpacity onPress={() => addExercise(ex)} activeOpacity={0.7}>
+            <Ionicons name="add-circle" size={26} color={Colors.brandAccent} />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -115,31 +149,19 @@ export default function TreinoEdit() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {loading ? (
           <Text style={{textAlign: 'center', color: Colors.textMuted, marginTop: 20}}>Carregando da API...</Text>
-        ) : filtered.map((ex) => {
-          const added = alreadyAdded.has(ex.id);
-          return (
-            <View key={ex.id} style={[styles.exCard, added && styles.exCardAdded]}>
-              <View style={styles.exIcon}>
-                <Ionicons name={ex.icon as any} size={22} color={added ? Colors.brandGreen : Colors.brandAccent} />
+        ) : filter === 'all' ? (
+          Object.entries(groupedExercises).map(([muscle, exs]) => (
+            <View key={muscle} style={{ marginBottom: 12 }}>
+              <View style={styles.groupHeader}>
+                <View style={styles.groupDot} />
+                <Text style={styles.groupTitle}>{MUSCLE_GROUP_LABELS[muscle as MuscleGroup]}</Text>
               </View>
-              <View style={styles.exInfo}>
-                <Text style={styles.exName}>{ex.name}</Text>
-                <View style={styles.exMeta}>
-                  <Text style={styles.exMuscle}>{MUSCLE_GROUP_LABELS[ex.muscleGroup]}</Text>
-                  <Text style={styles.exEquip}>{ex.equipment}</Text>
-                  <Text style={styles.exDefault}>{ex.defaultSets}x{ex.defaultReps}</Text>
-                </View>
-              </View>
-              {added ? (
-                <Ionicons name="checkmark-circle" size={26} color={Colors.brandGreen} />
-              ) : (
-                <TouchableOpacity onPress={() => addExercise(ex)} activeOpacity={0.7}>
-                  <Ionicons name="add-circle" size={26} color={Colors.brandAccent} />
-                </TouchableOpacity>
-              )}
+              {exs.map(renderExercise)}
             </View>
-          );
-        })}
+          ))
+        ) : (
+          filtered.map(renderExercise)
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -220,4 +242,7 @@ const styles = StyleSheet.create({
   exMuscle: { ...Typography.caption, color: Colors.brandGreen },
   exEquip: { ...Typography.caption, color: Colors.textSecondary },
   exDefault: { ...Typography.captionBold, color: Colors.brandAccent },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 4, gap: 8 },
+  groupDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.brandGreen },
+  groupTitle: { ...Typography.bodyBold, color: Colors.textPrimary },
 });

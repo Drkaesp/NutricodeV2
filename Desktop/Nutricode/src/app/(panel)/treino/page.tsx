@@ -136,7 +136,7 @@ export default function TelaTreinoFisico() {
       {/* Abstração Superior do Invólucro */}
       <View style={estilos.cabecalhoAtivo}>
         <Ionicons name="barbell" size={22} color={Colors.brandGreen} />
-        <Text style={estilos.tituloOperacional}>Mecânica Biológica</Text>
+        <Text style={estilos.tituloOperacional}>Treino</Text>
         {rotinaJaConcluida && (
           <View style={estilos.distintivoOperacaoConcluida}>
             <Ionicons name="checkmark-circle" size={14} color={Colors.brandGreen} />
@@ -178,7 +178,7 @@ export default function TelaTreinoFisico() {
               activeOpacity={0.8}
             >
               <Ionicons name="add-circle" size={20} color={Colors.textOnAccent} />
-              <Text style={estilos.textoBotaoAcaoInjecao}>Adicionar Variáveis Físicas</Text>
+              <Text style={estilos.textoBotaoAcaoInjecao}>Adicionar Exercício</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -253,7 +253,7 @@ export default function TelaTreinoFisico() {
               activeOpacity={0.7}
             >
               <Ionicons name="add" size={20} color={Colors.brandGreen} />
-              <Text style={estilos.textoAdicaoCargaParalela}>Injetar Mais Movimentos da API</Text>
+              <Text style={estilos.textoAdicaoCargaParalela}>Adicionar Exercício</Text>
             </TouchableOpacity>
 
             {!rotinaJaConcluida && (

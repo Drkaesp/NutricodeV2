@@ -1,10 +1,11 @@
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import { getUsers, hashPassword, saveCurrentUser } from '@/src/utils/storage';
 import { useAuth } from '@/src/context/AuthContext';
+import { api } from '@/src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Image,
   KeyboardAvoidingView,
@@ -38,26 +39,38 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const users = await getUsers();
-      const senhaHash = await hashPassword(senha);
-      const foundUser = users.find(
-        (u: any) =>
-          u.email.toLowerCase() === email.toLowerCase() &&
-          u.senhaHash === senhaHash
-      );
+      // Faz fetch pra valer na API real!
+      const data = await api.login(email, senha);
 
-      if (!foundUser) {
-        setMensagem({ texto: 'Email ou senha incorretos.', tipo: 'erro' });
-        setLoading(false);
-        return;
+      if (data && data.token) {
+        // Obtenha os dados do usuário a partir da resposta (se disponível) ou deixe como rascunho
+        const loggedUser = {
+          id: data.username || email,
+          nome: data.username || 'Usuário',
+          email: email,
+          totalXP: 0,
+          streak: 0,
+        };
+
+        // Envia pro Context Auth salva o JWT internamente
+        await login(loggedUser, data.token);
+        
+        // PURGA DOS DADOS ANTIGOS: Remove tabelas sujas (mock local)
+        try {
+          await AsyncStorage.multiRemove(['MEAL_PLAN_V1', 'WORKOUT_PLAN_V1']);
+        } catch (e) {
+          console.warn('Erro ao limpar cache antigo:', e);
+        }
+        
+        setMensagem({ texto: 'Login realizado com sucesso!', tipo: 'sucesso' });
+        setTimeout(() => router.replace('/(panel)/home/page' as any), 800);
+      } else {
+        setMensagem({ texto: 'Resposta inválida do servidor.', tipo: 'erro' });
       }
-
-      await login(foundUser);
-      setMensagem({ texto: 'Login realizado com sucesso!', tipo: 'sucesso' });
-      setTimeout(() => router.replace('/(panel)/home/page' as any), 800);
-    } catch (err) {
+      
+    } catch (err: any) {
       console.error(err);
-      setMensagem({ texto: 'Erro ao tentar logar. Tente novamente.', tipo: 'erro' });
+      setMensagem({ texto: err.message || 'Erro ao tentar logar. Tente novamente.', tipo: 'erro' });
     }
     setLoading(false);
   }

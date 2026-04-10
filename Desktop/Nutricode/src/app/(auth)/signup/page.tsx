@@ -1,7 +1,7 @@
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import { useAuth } from '@/src/context/AuthContext';
-import { addUser, getUsers, hashPassword } from '@/src/utils/storage';
+import { api } from '@/src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -54,6 +54,10 @@ export default function SignupScreen() {
       setMensagem({ texto: 'A senha deve conter pelo menos um número.', tipo: 'erro' });
       return;
     }
+    if (!/[A-Z]/.test(senha)) {
+      setMensagem({ texto: 'A senha deve conter pelo menos uma letra maiúscula.', tipo: 'erro' });
+      return;
+    }
     if (senha !== confirmarSenha) {
       setMensagem({ texto: 'As senhas não coincidem.', tipo: 'erro' });
       return;
@@ -61,17 +65,40 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      const senhaHash = await hashPassword(senha);
-      await addUser({ nome, email, senhaHash });
+      // 1. Cadastra na API Remota
+      const data = await api.register(nome, email, senha);
 
-      const allUsers = await getUsers();
-      const newUser = allUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-      if (newUser) {
-        await login(newUser);
+      if (data && data.confirmationToken) {
+        const confirmLink = `https://nutricode-api.onrender.com/auth/confirm?token=${data.confirmationToken}`;
+
+        // 2. Envia o Link de Confirmação via EmailJS
+        const payload = {
+          service_id: 'service_0qgrk5w', // Substitua pelo seu Service ID do EmailJS
+          template_id: 'template_t7f2k2y', // Substitua pelo seu Template ID do EmailJS
+          user_id: 'Miq3zAZ3LLOCjLu3d', // Substitua pela sua Public Key do EmailJS
+          template_params: {
+            to_email: email,
+            codigo_confirmacao: confirmLink, // Variável ajustada para suportar a URL
+          }
+        };
+
+        try {
+          await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } catch (e) {
+          console.warn('Erro ao enviar confirmação pelo EmailJS', e);
+        }
+
+        setMensagem({ texto: 'Conta criada! Acesse seu email para confirmar antes de Logar.', tipo: 'sucesso' });
+        setTimeout(() => router.replace('/' as never), 2500);
+      } else {
+        setMensagem({ texto: 'Conta criada! Tente fazer Login.', tipo: 'sucesso' });
+        setTimeout(() => router.replace('/' as never), 1500);
       }
 
-      setMensagem({ texto: 'Conta criada com sucesso!', tipo: 'sucesso' });
-      setTimeout(() => router.replace('/(auth)/onboarding/page' as never), 1000);
     } catch (err: any) {
       setMensagem({ texto: err.message || 'Erro ao criar conta.', tipo: 'erro' });
     }
