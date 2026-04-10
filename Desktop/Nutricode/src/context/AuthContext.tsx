@@ -1,5 +1,6 @@
 import { clearCurrentUser, getCurrentUser, saveCurrentUser } from '@/src/utils/storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface User {
   id: string;
@@ -22,7 +23,8 @@ export interface User {
 interface AuthContextData {
   user: User | null;
   isLoading: boolean;
-  login: (userData: User) => Promise<void>;
+  token: string | null;
+  login: (userData: User, jwtToken?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
 }
@@ -31,20 +33,23 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadStorageData() {
+      const storedToken = await AsyncStorage.getItem('@nutricode_jwt');
       const currentUser = await getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser);
-      }
+      
+      if (storedToken) setToken(storedToken);
+      if (currentUser) setUser(currentUser);
+      
       setIsLoading(false);
     }
     loadStorageData();
   }, []);
 
-  const login = async (userData: User) => {
+  const login = async (userData: User, jwtToken?: string) => {
     const enrichedUser: User = {
       ...userData,
       totalXP: userData.totalXP ?? 0,
@@ -52,11 +57,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     setUser(enrichedUser);
     await saveCurrentUser(enrichedUser);
+
+    if (jwtToken) {
+      setToken(jwtToken);
+      await AsyncStorage.setItem('@nutricode_jwt', jwtToken);
+    }
   };
 
   const logout = async () => {
     setUser(null);
+    setToken(null);
     await clearCurrentUser();
+    await AsyncStorage.removeItem('@nutricode_jwt');
   };
 
   const updateUser = async (updatedFields: Partial<User>) => {
@@ -68,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, token, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

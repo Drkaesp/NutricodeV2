@@ -85,9 +85,26 @@ export default function TelaAlimentacao() {
    * Condicional Finalizador Biológico
    * Registo visual de âncoramento definitivo para confirmar a digestão no relógio.
    */
-  const confirmarDigestaoCompleta = (chaveRefeicao: string) => {
-    // TODO: AQUI ACONTECE A INTEGRAÇÃO PARA GRAVAR O 'COMPLETED: TRUE' NO BANCO DE DADOS
-    console.log(`Digestão do bloco ${chaveRefeicao} computada.`);
+  const confirmarDigestaoCompleta = async (chaveRefeicao: string) => {
+    if (!planoAlimentacao || !diaSelecionado) return;
+    
+    // Create copy for immutability
+    const planoAtualizado = { ...planoAlimentacao };
+    const diaAtual = planoAtualizado[diaSelecionado] as any;
+    
+    // Ensure day object exists
+    if (!diaAtual) return;
+    if (!diaAtual[chaveRefeicao]) return;
+
+    // Set meal as completed
+    diaAtual[chaveRefeicao] = { ...diaAtual[chaveRefeicao], completed: true };
+    
+    // Save to local storage mock DB
+    await import('@/src/utils/storage').then(module => module.saveMealPlan(planoAtualizado));
+    
+    // Update local state
+    setPlanoAlimentacao(planoAtualizado);
+    console.log(`Digestão do bloco ${chaveRefeicao} computada e persistida.`);
   };
 
   return (
@@ -182,7 +199,7 @@ export default function TelaAlimentacao() {
                       }}
                     >
                       <Ionicons name="add-circle" size={18} color={Colors.brandAccent} />
-                      <Text style={estilos.textoBotaoAdicao}>Injetar Variável</Text>
+                      <Text style={estilos.textoBotaoAdicao}>Adicionar Alimento</Text>
                     </TouchableOpacity>
 
                     {/* Botão de Finalização Expresso */}
@@ -202,6 +219,24 @@ export default function TelaAlimentacao() {
             </TouchableOpacity>
           );
         })}
+
+        {/* Componente Finalizador Diário */}
+        <TouchableOpacity
+            style={[estilos.botaoAdicaoBiologica, { backgroundColor: Colors.brandGreen, marginVertical: 20, paddingVertical: 14 }]}
+            onPress={async () => {
+              // Concede XP e simboliza fechamento do dia!
+              const userXP = await import('@/src/utils/storage').then(module => module.getUserProfile());
+              if(userXP){
+                 const novaExp = (userXP.totalXP || 0) + 150; // XP_REWARDS equivalente
+                 await import('@/src/utils/storage').then(module => module.saveUserProfile({ ...userXP, totalXP: novaExp }));
+                 import('react-native').then(rn => rn.Alert.alert("🎉 Parabéns!", "Dia de alimentação finalizado com sucesso! +150 XP absorvido."));
+              }
+            }}
+            activeOpacity={0.8}
+        >
+          <Ionicons name="trophy" size={20} color={Colors.textPrimary} />
+          <Text style={[estilos.textoBotaoAdicao, { color: Colors.textPrimary, fontSize: 16 }]}>Completar Dia de Alimentação</Text>
+        </TouchableOpacity>
 
         <View style={{ height: 100 }} />
       </ScrollView>

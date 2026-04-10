@@ -8,8 +8,9 @@ import Typography from '@/constants/Typography';
 import NutriMascot from '@/src/components/NutriMascot';
 import XPBar from '@/src/components/XPBar';
 import { useAuth } from '@/src/context/AuthContext';
-import { getLevelFromXP, calculateDailyWaterGoal, RECOMMENDED_WORKOUTS, EXERCISE_DATABASE, RecommendedWorkout } from '@/constants/GameData';
+import { getLevelFromXP, calculateDailyWaterGoal, RECOMMENDED_WORKOUTS, RecommendedWorkout } from '@/constants/GameData';
 import { getWorkoutPlan, saveWorkoutPlan, getTodayWater, WorkoutExercise } from '@/src/utils/storage';
+import { fetchExercisesFromApi } from '@/src/utils/api';
 
 /**
  * O Módulo Operacional Base do Perfil Integrado Biológico
@@ -93,9 +94,11 @@ export default function CentralBiometricaBase() {
   }
 
   async function engatarRotinaImplantada(rotina: RecommendedWorkout) {
+    const apiExercicios = await fetchExercisesFromApi();
+    
     const vetorExercicios: WorkoutExercise[] = rotina.exercises
       .map((idUnico) => {
-        const dadosExercicio = EXERCISE_DATABASE.find((e) => e.id === idUnico);
+        const dadosExercicio = apiExercicios.find((e) => e.id === idUnico);
         if (!dadosExercicio) return null;
         return {
           exerciseId: dadosExercicio.id,

@@ -1,4 +1,5 @@
 import { Exercise, FoodItem } from '@/constants/GameData';
+import { getAuthHeaders } from '@/src/services/api';
 
 const BASE_URL = 'https://nutricode-api.onrender.com';
 
@@ -27,7 +28,8 @@ export interface ApiExercise {
 
 export async function fetchExercisesFromApi(): Promise<(Exercise & { images: string[] })[]> {
   try {
-    const res = await fetch(`${BASE_URL}/exercicios`);
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${BASE_URL}/exercicios`, { headers });
     const data = await res.json();
     return data.content.map((item: ApiExercise) => ({
       id: item.id,
@@ -57,7 +59,8 @@ export interface ApiFood {
 
 export async function fetchFoodsFromApi(): Promise<FoodItem[]> {
   try {
-    const res = await fetch(`${BASE_URL}/alimentos`);
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${BASE_URL}/alimentos`, { headers });
     const data = await res.json();
     return data.map((item: ApiFood) => ({
       id: item.id.toString(),
