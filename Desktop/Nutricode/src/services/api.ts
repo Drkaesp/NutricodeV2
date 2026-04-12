@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * Helper para pegar o JWT Token persistido.
  */
-export const getAuthHeaders = async () => {
+export const getAuthHeaders = async (): Promise<Record<string, string>> => {
   const token = await AsyncStorage.getItem('@nutricode_jwt');
   if (token) {
     return {
