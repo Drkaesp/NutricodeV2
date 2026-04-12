@@ -29,7 +29,7 @@ export default function MaquinaDeEscreverTexto({
   const [estaApagando, setEstaApagando] = useState(false);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: any;
     
     // Lógica do ponteiro de caracteres atual
     const textoAlvo = mensagens[indiceMensagem];

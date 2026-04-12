@@ -48,6 +48,10 @@ export async function clearCurrentUser() {
   await AsyncStorage.removeItem(CURRENT_USER_KEY);
 }
 
+// Aliases for user profile management used in some components
+export const getUserProfile = getCurrentUser;
+export const saveUserProfile = saveCurrentUser;
+
 export async function deleteUser(email: string) {
   const users = await getUsers();
   const filtered = users.filter((u: any) => u.email.toLowerCase() !== email.toLowerCase());
