@@ -43,17 +43,8 @@ export default function LoginScreen() {
       const data = await api.login(email, senha);
 
       if (data && data.token) {
-        // Obtenha os dados do usuário a partir da resposta (se disponível) ou deixe como rascunho
-        const loggedUser = {
-          id: data.username || email,
-          nome: data.username || 'Usuário',
-          email: email,
-          totalXP: 0,
-          streak: 0,
-        };
-
-        // Envia pro Context Auth salva o JWT internamente
-        await login(loggedUser, data.token);
+        // Envia pro Context Auth salva o JWT internamente e busca os dados da API
+        const loggedUser = await login(data.token);
         
         // PURGA DOS DADOS ANTIGOS: Remove tabelas sujas (mock local)
         try {
@@ -63,7 +54,13 @@ export default function LoginScreen() {
         }
         
         setMensagem({ texto: 'Login realizado com sucesso!', tipo: 'sucesso' });
-        setTimeout(() => router.replace('/(panel)/home/page' as any), 800);
+        setTimeout(() => {
+          if (!loggedUser?.altura || !loggedUser?.peso || !loggedUser?.idade) {
+            router.replace('/(auth)/onboarding/page' as any);
+          } else {
+            router.replace('/(panel)/home/page' as any);
+          }
+        }, 800);
       } else {
         setMensagem({ texto: 'Resposta inválida do servidor.', tipo: 'erro' });
       }
@@ -91,6 +88,7 @@ export default function LoginScreen() {
               <Image
                 source={require('@/assets/images/mascoteLogin.png')}
                 style={styles.logoImage}
+                resizeMode="contain"
               />
             </View>
             <Text style={styles.logoText}>
@@ -200,11 +198,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244, 162, 97, 0.1)',
     marginBottom: 12,
   },
-  logoImage: {
-    width: 140,
-    height: 140,
-    resizeMode: 'contain',
-  },
+  logoImage: { width: 140, height: 140 },
+  mascot: { width: 120, height: 120, marginBottom: 16 },
   logoText: {
     ...Typography.h1,
     color: Colors.brandGreen,

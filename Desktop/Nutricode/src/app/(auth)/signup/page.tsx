@@ -73,9 +73,9 @@ export default function SignupScreen() {
 
         // 2. Envia o Link de Confirmação via EmailJS
         const payload = {
-          service_id: 'service_0qgrk5w', // Substitua pelo seu Service ID do EmailJS
-          template_id: 'template_t7f2k2y', // Substitua pelo seu Template ID do EmailJS
-          user_id: 'Miq3zAZ3LLOCjLu3d', // Substitua pela sua Public Key do EmailJS
+          service_id: process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID,
+          template_id: process.env.EXPO_PUBLIC_EMAILJS_TEMPLATE_ID,
+          user_id: process.env.EXPO_PUBLIC_EMAILJS_PUBLIC_KEY,
           template_params: {
             to_email: email,
             codigo_confirmacao: confirmLink, // Variável ajustada para suportar a URL

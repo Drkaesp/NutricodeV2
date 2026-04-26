@@ -9,6 +9,7 @@ import GarrafaAguaProcedimental from '@/src/components/WaterBottle';
 import { useAuth } from '@/src/context/AuthContext';
 import { calculateDailyWaterGoal, XP_REWARDS, getLevelFromXP } from '@/constants/GameData';
 import { addWater, getTodayWater, getWaterLog, WaterLog } from '@/src/utils/storage';
+import { api } from '@/src/services/api';
 
 /**
  * Matriz Lógica Hidrológica - Painel Principal
@@ -21,7 +22,7 @@ const OPCOES_VOLUME_HIDRICO = [
 ];
 
 export default function TelaHidrologicaMestra() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshUserData } = useAuth();
   const [ingestaoAtual, setIngestaoAtual] = useState(0);
   const [historicoCicloSemanal, setHistoricoCicloSemanal] = useState<WaterLog[]>([]);
   const [patamarAtingido, setPatamarAtingido] = useState(false);
@@ -61,15 +62,36 @@ export default function TelaHidrologicaMestra() {
     const topoAgregado = await addWater(mlTransicionado);
     setIngestaoAtual(topoAgregado);
 
-    if (topoAgregado >= metaCilindricaVolume && !patamarAtingido) {
-      setPatamarAtingido(true);
-      const acumuloExp = (user?.totalXP || 0) + XP_REWARDS.COMPLETE_WATER_GOAL;
-      await updateUser({ totalXP: acumuloExp });
-      Alert.alert(
-        '💧 Saciedade Hídrica Biológica!',
-        `Estrutura purgada e otimizada!\n+${XP_REWARDS.COMPLETE_WATER_GOAL} Pts de Processamento`,
-        [{ text: 'Estabilizar' }]
-      );
+    const completouAgora = topoAgregado >= metaCilindricaVolume && !patamarAtingido;
+    const hojeData = new Date().toISOString().split('T')[0];
+
+    if (user?.id) {
+      try {
+        const res = await api.logWater(user.id, mlTransicionado, hojeData, completouAgora);
+        if (completouAgora && res.xpEarned > 0) {
+          setPatamarAtingido(true);
+          Alert.alert(
+            '💧 Saciedade Hídrica Biológica!',
+            `Estrutura purgada e otimizada!\n+${res.xpEarned} XP`,
+            [{ text: 'Estabilizar' }]
+          );
+        }
+        await refreshUserData();
+      } catch (e) {
+        console.error('Erro ao logar água na API', e);
+      }
+    } else {
+      // Fallback
+      if (completouAgora) {
+        setPatamarAtingido(true);
+        const acumuloExp = (user?.totalXP || 0) + XP_REWARDS.COMPLETE_WATER_GOAL;
+        await updateUser({ totalXP: acumuloExp });
+        Alert.alert(
+          '💧 Saciedade Hídrica Biológica!',
+          `Estrutura purgada e otimizada!\n+${XP_REWARDS.COMPLETE_WATER_GOAL} Pts de Processamento`,
+          [{ text: 'Estabilizar' }]
+        );
+      }
     }
   }
 

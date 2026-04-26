@@ -7,6 +7,7 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import NutriMascot from '@/src/components/NutriMascot';
 import { useAuth } from '@/src/context/AuthContext';
+import { api } from '@/src/services/api';
 
 type Objetivo = 'perder_peso' | 'ganhar_massa' | 'manter_forma';
 type NivelAtividade = 'sedentario' | 'moderado' | 'ativo';
@@ -25,7 +26,7 @@ const ACTIVITY_LEVELS: { key: NivelAtividade; label: string; icon: string; desc:
 
 export default function Onboarding() {
   const router = useRouter();
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [step, setStep] = useState(1);
   const [peso, setPeso] = useState('');
@@ -48,19 +49,41 @@ export default function Onboarding() {
   };
 
   const handleConfirm = async () => {
-    if (!nivelAtividade) return;
+    if (!nivelAtividade || !user) return;
     try {
+      // Formata data DD/MM/AAAA para YYYY-MM-DD
+      let birthDate = undefined;
+      if (nascimento && nascimento.length === 10) {
+        const parts = nascimento.split('/');
+        birthDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+
+      const sex = genero === 'masculino' ? 'MALE' : genero === 'feminino' ? 'FEMALE' : 'MALE'; // API só aceita MALE/FEMALE por eqto
+
+      // Atualiza backend INFO
+      await api.updateUserInfo(user.id, {
+        height: parseInt(altura),
+        birthDate,
+        sex
+      });
+
+      // Salva log inicial de peso
+      const today = new Date().toISOString().split('T')[0];
+      await api.logWeight(user.id, parseFloat(peso), today);
+
+      // Atualiza o context (local) com todas as prefs
       await updateUser({
         peso: parseFloat(peso),
-        altura: parseFloat(altura),
+        altura: parseInt(altura),
         nascimento,
         genero: genero as any,
         objetivo: objetivo as any,
         nivelAtividade: nivelAtividade as any,
       });
+
       router.replace('/(panel)/home/page' as any);
     } catch (e) {
-      console.error(e);
+      console.error('Erro no onboarding:', e);
     }
   };
 

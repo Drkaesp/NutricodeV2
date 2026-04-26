@@ -38,9 +38,10 @@ export default function NutriMascot({ state, style, size = 150 }: NutriMascotPro
       <Image
         source={source}
         style={[
-          { width: size, height: size, resizeMode: 'contain' },
+          { width: size, height: size },
           style
         ]}
+        resizeMode="contain"
       />
     </View>
   );

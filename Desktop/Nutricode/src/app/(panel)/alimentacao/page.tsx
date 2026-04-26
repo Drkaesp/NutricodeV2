@@ -7,6 +7,8 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import { DAYS_OF_WEEK, MEAL_SLOTS } from '@/constants/GameData';
 import { getMealPlan, WeeklyMealPlan, MealFood } from '@/src/utils/storage';
+import { useAuth } from '@/src/context/AuthContext';
+import { api } from '@/src/services/api';
 
 // Habilitar a engine unificada nativa de Animação de Layout para componentes expansíveis no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -20,6 +22,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
  */
 export default function TelaAlimentacao() {
   const roteadorNativo = useRouter();
+  const { user, refreshUserData } = useAuth();
   const [diaSelecionado, setDiaSelecionado] = useState(obterChaveDiaAtual());
   const [planoAlimentacao, setPlanoAlimentacao] = useState<WeeklyMealPlan | null>(null);
   
@@ -224,12 +227,26 @@ export default function TelaAlimentacao() {
         <TouchableOpacity
             style={[estilos.botaoAdicaoBiologica, { backgroundColor: Colors.brandGreen, marginVertical: 20, paddingVertical: 14 }]}
             onPress={async () => {
-              // Concede XP e simboliza fechamento do dia!
-              const userXP = await import('@/src/utils/storage').then(module => module.getUserProfile());
-              if(userXP){
-                 const novaExp = (userXP.totalXP || 0) + 150; // XP_REWARDS equivalente
-                 await import('@/src/utils/storage').then(module => module.saveUserProfile({ ...userXP, totalXP: novaExp }));
-                 import('react-native').then(rn => rn.Alert.alert("🎉 Parabéns!", "Dia de alimentação finalizado com sucesso! +150 XP absorvido."));
+              const hojeData = new Date().toISOString().split('T')[0];
+
+              if (user?.id) {
+                try {
+                  const res = await api.logDiet(user.id, Math.round(totaisDiarios.calorias), hojeData, true);
+                  if (res.xpEarned > 0) {
+                    import('react-native').then(rn => rn.Alert.alert("🎉 Parabéns!", `Dia de alimentação finalizado com sucesso! +${res.xpEarned} XP absorvido.\nStreak Atual: ${res.streak}`));
+                  }
+                  await refreshUserData();
+                } catch(e) {
+                  console.error('Erro ao logar dieta na API', e);
+                }
+              } else {
+                // Fallback
+                const userXP = await import('@/src/utils/storage').then(module => module.getUserProfile());
+                if(userXP){
+                   const novaExp = (userXP.totalXP || 0) + 150; // XP_REWARDS equivalente
+                   await import('@/src/utils/storage').then(module => module.saveUserProfile({ ...userXP, totalXP: novaExp }));
+                   import('react-native').then(rn => rn.Alert.alert("🎉 Parabéns!", "Dia de alimentação finalizado com sucesso! +150 XP absorvido."));
+                }
               }
             }}
             activeOpacity={0.8}

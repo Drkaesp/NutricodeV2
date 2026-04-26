@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://nutricode-api.onrender.com';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://nutricode-api.onrender.com';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -85,6 +85,104 @@ export const api = {
     }
   },
   
-  // Future protected requests can use this helper:
-  // get: async (endpoint: string) => fetch(`${API_BASE_URL}${endpoint}`, { headers: await getAuthHeaders() })
+  // User Info & Progression
+  getUserMe: async () => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/me`, { headers });
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Sessão expirada');
+      }
+      throw new Error('Falha ao obter dados do usuário');
+    }
+    return response.json();
+  },
+
+  getUserInfo: async (userId: string) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/info`, { headers });
+    if (!response.ok) {
+        if(response.status === 404) return null; // Not found info
+        throw new Error('Falha ao obter info física');
+    }
+    return response.json();
+  },
+
+  updateUserInfo: async (userId: string, data: any) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/info`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Falha ao atualizar info física: ${response.status} - ${errText}`);
+    }
+    return response.json();
+  },
+
+  getUserProgression: async (userId: string) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/progression`, { headers });
+    if (!response.ok) {
+      if(response.status === 404) return null;
+      throw new Error('Falha ao obter progressão');
+    }
+    return response.json();
+  },
+
+  // Logs
+  logWeight: async (userId: string, weight: number, date: string) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/weight-logs`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ weight, date }),
+    });
+    if (!response.ok) throw new Error('Falha ao registrar peso');
+    return response.json();
+  },
+
+  logWater: async (userId: string, milliliters: number, date: string, isCompleted: boolean) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/water-logs`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ milliliters, date, isCompleted }),
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Falha ao registrar água: ${response.status} - ${text}`);
+    }
+    return response.json();
+  },
+
+  logWorkout: async (userId: string, durationMinutes: number, date: string, isCompleted: boolean) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/workout-performed`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ date, isFinished: isCompleted }),
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Falha ao registrar treino: ${response.status} - ${text}`);
+    }
+    return response.json();
+  },
+
+  logDiet: async (userId: string, calories: number, date: string, isCompleted: boolean) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/diet-performed`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ date, isFinished: isCompleted }),
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Falha ao registrar dieta: ${response.status} - ${text}`);
+    }
+    return response.json();
+  }
 };

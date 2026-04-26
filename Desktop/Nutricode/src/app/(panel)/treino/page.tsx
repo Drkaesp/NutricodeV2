@@ -9,6 +9,7 @@ import NutriMascot from '@/src/components/NutriMascot';
 import { DAYS_OF_WEEK, MUSCLE_GROUP_LABELS, XP_REWARDS } from '@/constants/GameData';
 import { getWorkoutPlan, saveWorkoutPlan, WorkoutExercise, WeeklyWorkoutPlan } from '@/src/utils/storage';
 import { useAuth } from '@/src/context/AuthContext';
+import { api } from '@/src/services/api';
 
 // Habilitar a engine unificada nativa de Animação de Layout para componentes expansíveis no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -23,7 +24,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
  */
 export default function TelaTreinoFisico() {
   const roteadorSistema = useRouter();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshUserData } = useAuth();
   
   const [diaMecanicoSelecionado, setDiaMecanicoSelecionado] = useState(obterChaveTemporalAtual());
   const [planoBiomecanico, setPlanoBiomecanico] = useState<WeeklyWorkoutPlan | null>(null);
@@ -91,16 +92,35 @@ export default function TelaTreinoFisico() {
     await saveWorkoutPlan(copiaPlano);
     setPlanoBiomecanico(copiaPlano);
 
-    // Recompensa Biológica Computacional
-    const ganhoExperiencia = (user?.totalXP || 0) + XP_REWARDS.COMPLETE_WORKOUT;
-    const sequenciaDiasForca = (user?.streak || 0) + 1;
-    await updateUser({ totalXP: ganhoExperiencia, streak: sequenciaDiasForca });
+    const hojeData = new Date().toISOString().split('T')[0];
+    const estimatedDuration = exerciciosAtivos.length * 10; // 10 mins per exercise estimate
 
-    Alert.alert(
-      '🎉 Adaptação Metabólica Concluída!',
-      `Estimulação Sistêmica Computada! +${XP_REWARDS.COMPLETE_WORKOUT} XP\nDias de Continuidade: ${sequenciaDiasForca}`,
-      [{ text: 'Absorver' }]
-    );
+    if (user?.id) {
+      try {
+        const res = await api.logWorkout(user.id, estimatedDuration > 0 ? estimatedDuration : 45, hojeData, true);
+        if (res.xpEarned > 0) {
+          Alert.alert(
+            '🎉 Adaptação Metabólica Concluída!',
+            `Estimulação Sistêmica Computada! +${res.xpEarned} XP\nStreak Atual: ${res.streak}`,
+            [{ text: 'Absorver' }]
+          );
+        }
+        await refreshUserData();
+      } catch (e) {
+        console.error('Erro na API treino', e);
+      }
+    } else {
+      // Recompensa Biológica Computacional (Fallback)
+      const ganhoExperiencia = (user?.totalXP || 0) + XP_REWARDS.COMPLETE_WORKOUT;
+      const sequenciaDiasForca = (user?.streak || 0) + 1;
+      await updateUser({ totalXP: ganhoExperiencia, streak: sequenciaDiasForca });
+
+      Alert.alert(
+        '🎉 Adaptação Metabólica Concluída!',
+        `Estimulação Sistêmica Computada! +${XP_REWARDS.COMPLETE_WORKOUT} XP\nDias de Continuidade: ${sequenciaDiasForca}`,
+        [{ text: 'Absorver' }]
+      );
+    }
   }
 
   // Desalocar estrutura da memória persistente associada

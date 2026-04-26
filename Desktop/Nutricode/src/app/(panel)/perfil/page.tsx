@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import NutriMascot from '@/src/components/NutriMascot';
@@ -85,12 +87,28 @@ export default function CentralBiometricaBase() {
   }
 
   async function invocarModificadorAvatar() {
-    // TODO: INTEGRAÇÃO API / GALERIA DE PLATAFORMA (CameraRoll)
-    Alert.alert(
-      'Módulo Galeria Local (Mock)',
-      'As permissões nativas seriam invocadas arquivando a persistência exata da face conectada do assinante em base64 e transmitindo à nuvem assincronicamente.',
-      [{ text: 'Simular Aceite' }]
-    );
+    // Solicita permissões
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permissão Recusada', 'O acesso à galeria é necessário para acoplar uma nova biometria visual.');
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+      const asset = pickerResult.assets[0];
+      const base64Uri = `data:image/jpeg;base64,${asset.base64}`;
+      await updateUser({ avatar: base64Uri });
+      Alert.alert('Sincronização', 'Sua matriz visual foi atualizada na rede.');
+    }
   }
 
   async function engatarRotinaImplantada(rotina: RecommendedWorkout) {
@@ -159,7 +177,11 @@ export default function CentralBiometricaBase() {
         {/* Acoplamento do Escopo Biográfico Textual */}
         <View style={estilos.cabecalhoIdentidadePrincipal}>
           <TouchableOpacity style={estilos.campoFisicoAvatar} onPress={invocarModificadorAvatar} activeOpacity={0.8}>
-            <NutriMascot state="alegre" size={80} />
+            {user?.avatar ? (
+               <Image source={{ uri: user.avatar }} style={{ width: 80, height: 80, borderRadius: 40 }} />
+            ) : (
+               <NutriMascot state="alegre" size={80} />
+            )}
             <View style={estilos.engateMudarAvatar}>
                <Ionicons name="camera" size={14} color={Colors.white} />
             </View>
