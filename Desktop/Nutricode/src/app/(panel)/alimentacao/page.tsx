@@ -9,6 +9,8 @@ import { DAYS_OF_WEEK, MEAL_SLOTS } from '@/constants/GameData';
 import { getMealPlan, WeeklyMealPlan, MealFood } from '@/src/utils/storage';
 import { useAuth } from '@/src/context/AuthContext';
 import { api } from '@/src/services/api';
+import NotificationTimePicker from '@/src/components/NotificationTimePicker';
+import { scheduleMealNotification } from '@/src/services/notifications';
 
 // Habilitar a engine unificada nativa de Animação de Layout para componentes expansíveis no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -25,6 +27,8 @@ export default function TelaAlimentacao() {
   const { user, refreshUserData } = useAuth();
   const [diaSelecionado, setDiaSelecionado] = useState(obterChaveDiaAtual());
   const [planoAlimentacao, setPlanoAlimentacao] = useState<WeeklyMealPlan | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [mealSlotToEdit, setMealSlotToEdit] = useState<string | null>(null);
   
   // Controle Rítmico do Estado de Expansão dos blocos isolados (id: bool)
   const [blocosExpandidos, setBlocosExpandidos] = useState<Record<string, boolean>>({});
@@ -107,7 +111,58 @@ export default function TelaAlimentacao() {
     
     // Update local state
     setPlanoAlimentacao(planoAtualizado);
-    console.log(`Digestão do bloco ${chaveRefeicao} computada e persistida.`);
+  };
+
+  /**
+   * Remoção de alimento individual da refeição
+   * Remove o alimento pelo índice e persiste a mudança no AsyncStorage.
+   */
+  const removerAlimentoDaRefeicao = async (chaveRefeicao: string, indice: number) => {
+    if (!planoAlimentacao || !diaSelecionado) return;
+
+    const planoAtualizado = { ...planoAlimentacao };
+    const diaAtual = planoAtualizado[diaSelecionado] as any;
+
+    if (!diaAtual || !diaAtual[chaveRefeicao]) return;
+
+    const alimentosAtuais: MealFood[] = diaAtual[chaveRefeicao]?.foods || [];
+    const alimentosFiltrados = alimentosAtuais.filter((_: MealFood, i: number) => i !== indice);
+
+    diaAtual[chaveRefeicao] = { ...diaAtual[chaveRefeicao], foods: alimentosFiltrados };
+
+    await import('@/src/utils/storage').then(module => module.saveMealPlan(planoAtualizado));
+    setPlanoAlimentacao(planoAtualizado);
+  };
+
+  const handleNotificationConfirm = async (date: Date | null) => {
+    setShowTimePicker(false);
+    if (date && planoAlimentacao && mealSlotToEdit) {
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      const planoAtualizado = { ...planoAlimentacao };
+      const diaAtual = planoAtualizado[diaSelecionado] as any;
+      if (diaAtual && diaAtual[mealSlotToEdit]) {
+        diaAtual[mealSlotToEdit] = { ...diaAtual[mealSlotToEdit], time: timeStr };
+      }
+      
+      await import('@/src/utils/storage').then(module => module.saveMealPlan(planoAtualizado));
+      setPlanoAlimentacao(planoAtualizado);
+      setMealSlotToEdit(null);
+
+      const scheduledDate = new Date();
+      scheduledDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      
+      if (scheduledDate.getTime() < new Date().getTime() && obterChaveDiaAtual() === diaSelecionado) {
+        scheduledDate.setDate(scheduledDate.getDate() + 1);
+      }
+      
+      const slotName = MEAL_SLOTS.find(s => s.key === mealSlotToEdit)?.label || 'Refeição';
+      
+      await scheduleMealNotification(scheduledDate);
+      import('react-native').then(rn => rn.Alert.alert('Horário Definido', `Seu(a) ${slotName} foi agendado(a) para as ${timeStr}. Você será notificado!`));
+    } else {
+      setMealSlotToEdit(null);
+    }
   };
 
   return (
@@ -158,7 +213,19 @@ export default function TelaAlimentacao() {
                 </View>
                 <View style={estilos.informacoesBlocoRefeicao}>
                   <Text style={estilos.tituloRefeicao}>{slot.label}</Text>
-                  <Text style={estilos.tempoRefeicao}>{slot.time}</Text>
+                  <TouchableOpacity 
+                    style={estilos.editarHorarioBtn} 
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setMealSlotToEdit(slot.key);
+                      setShowTimePicker(true);
+                    }}
+                  >
+                    <Ionicons name="time-outline" size={14} color={Colors.brandAccent} />
+                    <Text style={estilos.tempoRefeicao}>
+                      {(refeicoesDoDia as any)?.[slot.key]?.time || slot.time}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 
                 {listaAlimentos.length > 0 && (
@@ -185,6 +252,15 @@ export default function TelaAlimentacao() {
                           <Text style={estilos.nomeAlimento}>{comida.name}</Text>
                           <Text style={estilos.gramasAlimento}>{comida.grams}g</Text>
                           <Text style={estilos.caloriasAlimento}>{Math.round(comida.kcal)} kcal</Text>
+                          <TouchableOpacity
+                            style={estilos.botaoRemoverAlimento}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              removerAlimentoDaRefeicao(slot.key, indice);
+                            }}
+                          >
+                            <Ionicons name="trash-outline" size={16} color={Colors.statusError} />
+                          </TouchableOpacity>
                         </View>
                       ))}
                     </View>
@@ -280,6 +356,14 @@ export default function TelaAlimentacao() {
           <Text style={estilos.rotuloCelulaRodape}>Gordura</Text>
         </View>
       </View>
+
+      <NotificationTimePicker 
+        visible={showTimePicker} 
+        title="Agendar Refeição"
+        subtitle={`Defina o horário da sua refeição.`}
+        cancelText="Cancelar"
+        onConfirm={handleNotificationConfirm} 
+      />
     </SafeAreaView>
   );
 }
@@ -358,7 +442,18 @@ const estilos = StyleSheet.create({
   },
   informacoesBlocoRefeicao: { flex: 1 },
   tituloRefeicao: { ...Typography.bodyBold, color: Colors.textPrimary },
-  tempoRefeicao: { ...Typography.caption, color: Colors.textSecondary },
+  editarHorarioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+    backgroundColor: Colors.brandAccent + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  tempoRefeicao: { ...Typography.captionBold, color: Colors.brandAccent },
   distintivoCalorico: {
     backgroundColor: Colors.macroCalories + '20',
     paddingHorizontal: 10,
@@ -382,6 +477,12 @@ const estilos = StyleSheet.create({
   nomeAlimento: { ...Typography.body, color: Colors.textPrimary, flex: 1 },
   gramasAlimento: { ...Typography.caption, color: Colors.textSecondary, marginRight: 12 },
   caloriasAlimento: { ...Typography.captionBold, color: Colors.brandAccent },
+  botaoRemoverAlimento: {
+    padding: 6,
+    marginLeft: 8,
+    backgroundColor: Colors.statusError + '15',
+    borderRadius: 8,
+  },
   textoEspacoVazio: {
     ...Typography.caption,
     color: Colors.textMuted,

@@ -31,10 +31,10 @@ interface AuthContextData {
   user: User | null;
   isLoading: boolean;
   token: string | null;
-  login: (jwtToken: string) => Promise<void>;
+  login: (jwtToken: string) => Promise<any>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
-  refreshUserData: () => Promise<void>;
+  refreshUserData: () => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -61,12 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: actualUserId,
         nome: me.username,
         email: me.email,
+        peso: currentUser.peso,  // Peso é salvo localmente no onboarding
         altura: info?.height ?? currentUser.altura,
-        idade: info?.age,
+        idade: info?.age ?? currentUser.idade,
         genero: info?.sex === 'MALE' ? 'masculino' : info?.sex === 'FEMALE' ? 'feminino' : currentUser.genero,
-        totalXP: progression?.xp ?? 0,
-        streak: progression?.currentWorkoutStreak ?? 0,
-        level: progression?.level ?? 1,
+        objetivo: currentUser.objetivo,           // Campo local-only
+        nivelAtividade: currentUser.nivelAtividade, // Campo local-only
+        totalXP: progression?.xp ?? currentUser.totalXP ?? 0,
+        streak: progression?.currentWorkoutStreak ?? currentUser.streak ?? 0,
+        level: progression?.level ?? currentUser.level ?? 1,
         nextLevelRequirement: progression?.nextLevelRequirement ?? 240,
         currentReward: progression?.currentReward ?? 100,
         progression: progression,

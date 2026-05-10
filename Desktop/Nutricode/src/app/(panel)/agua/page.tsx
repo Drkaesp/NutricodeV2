@@ -10,6 +10,8 @@ import { useAuth } from '@/src/context/AuthContext';
 import { calculateDailyWaterGoal, XP_REWARDS, getLevelFromXP } from '@/constants/GameData';
 import { addWater, getTodayWater, getWaterLog, WaterLog } from '@/src/utils/storage';
 import { api } from '@/src/services/api';
+import { scheduleHydrationNotification } from '@/src/services/notifications';
+import { Modal } from 'react-native';
 
 /**
  * Matriz Lógica Hidrológica - Painel Principal
@@ -26,6 +28,7 @@ export default function TelaHidrologicaMestra() {
   const [ingestaoAtual, setIngestaoAtual] = useState(0);
   const [historicoCicloSemanal, setHistoricoCicloSemanal] = useState<WaterLog[]>([]);
   const [patamarAtingido, setPatamarAtingido] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
   
   // Customização paramétrica destravável via gamificação
   const niveisLivre = getLevelFromXP(user?.totalXP || 0);
@@ -95,6 +98,12 @@ export default function TelaHidrologicaMestra() {
     }
   }
 
+  const handleSetReminder = async (hours: number) => {
+    setShowReminderModal(false);
+    await scheduleHydrationNotification(hours);
+    Alert.alert('Lembrete Ativo', `Você será notificado a cada ${hours} hora(s) para beber água!`);
+  };
+
   const terminologiaDiasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
@@ -154,6 +163,11 @@ export default function TelaHidrologicaMestra() {
           ))}
         </View>
 
+        <TouchableOpacity style={estilos.botaoLembrete} onPress={() => setShowReminderModal(true)} activeOpacity={0.8}>
+          <Ionicons name="notifications" size={20} color={Colors.waterMedium} />
+          <Text style={estilos.textoBotaoLembrete}>Me lembrar da Hidratação</Text>
+        </TouchableOpacity>
+
         {/* Grade do Ciclo Histórico Temporal */}
         <Text style={estilos.tituloSessaoOperacional}>Retenção Semanal Computada</Text>
         <View style={estilos.bancoDeMemoriaSecundario}>
@@ -204,6 +218,28 @@ export default function TelaHidrologicaMestra() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Modal de Agendamento */}
+      <Modal visible={showReminderModal} transparent animationType="fade">
+        <View style={estilos.modalOverlay}>
+          <View style={estilos.modalContainer}>
+            <Text style={estilos.modalTitle}>Configurar Lembrete</Text>
+            <Text style={estilos.modalSubtitle}>Com qual frequência deseja ser lembrado para beber água?</Text>
+            
+            <View style={estilos.modalOptions}>
+              {[1, 2, 3, 4].map(h => (
+                <TouchableOpacity key={h} style={estilos.modalOptionBtn} onPress={() => handleSetReminder(h)}>
+                  <Text style={estilos.modalOptionText}>A cada {h} hora{h > 1 ? 's' : ''}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={estilos.modalCancelBtn} onPress={() => setShowReminderModal(false)}>
+              <Text style={estilos.modalCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -315,4 +351,28 @@ const estilos = StyleSheet.create({
   interfaceBlocoTexto: { flex: 1 },
   tituloExtremo: { ...Typography.bodyBold, color: Colors.brandYellowBright },
   textoOrientativoExtremo: { ...Typography.caption, color: Colors.textSecondary, marginTop: 6, lineHeight: 20 },
+  
+  botaoLembrete: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.waterBackground,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    marginBottom: 28,
+  },
+  textoBotaoLembrete: { ...Typography.bodyBold, color: Colors.waterMedium },
+  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { width: '85%', backgroundColor: Colors.surfaceCards, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: Colors.surfaceCardsLight },
+  modalTitle: { ...Typography.h3, color: Colors.waterMedium, textAlign: 'center', marginBottom: 8 },
+  modalSubtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', marginBottom: 20 },
+  modalOptions: { gap: 10, marginBottom: 20 },
+  modalOptionBtn: { backgroundColor: Colors.waterBackground, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)' },
+  modalOptionText: { ...Typography.bodyBold, color: Colors.waterMedium },
+  modalCancelBtn: { alignItems: 'center', paddingVertical: 12 },
+  modalCancelText: { ...Typography.button, color: Colors.textSecondary },
 });

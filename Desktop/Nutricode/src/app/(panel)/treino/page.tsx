@@ -10,6 +10,8 @@ import { DAYS_OF_WEEK, MUSCLE_GROUP_LABELS, XP_REWARDS } from '@/constants/GameD
 import { getWorkoutPlan, saveWorkoutPlan, WorkoutExercise, WeeklyWorkoutPlan } from '@/src/utils/storage';
 import { useAuth } from '@/src/context/AuthContext';
 import { api } from '@/src/services/api';
+import NotificationTimePicker from '@/src/components/NotificationTimePicker';
+import { scheduleWorkoutNotification } from '@/src/services/notifications';
 
 // Habilitar a engine unificada nativa de Animação de Layout para componentes expansíveis no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -28,6 +30,7 @@ export default function TelaTreinoFisico() {
   
   const [diaMecanicoSelecionado, setDiaMecanicoSelecionado] = useState(obterChaveTemporalAtual());
   const [planoBiomecanico, setPlanoBiomecanico] = useState<WeeklyWorkoutPlan | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Controle Estático de Memória Visual: Rastreador de expansão ativa para Renderização de Mídia
   const [rastreadorExpansaoAnimada, setRastreadorExpansaoAnimada] = useState<Record<string, boolean>>({});
@@ -101,8 +104,7 @@ export default function TelaTreinoFisico() {
         if (res.xpEarned > 0) {
           Alert.alert(
             '🎉 Adaptação Metabólica Concluída!',
-            `Estimulação Sistêmica Computada! +${res.xpEarned} XP\nStreak Atual: ${res.streak}`,
-            [{ text: 'Absorver' }]
+            `Estimulação Sistêmica Computada! +${res.xpEarned} XP\nStreak Atual: ${res.streak}`
           );
         }
         await refreshUserData();
@@ -117,8 +119,7 @@ export default function TelaTreinoFisico() {
 
       Alert.alert(
         '🎉 Adaptação Metabólica Concluída!',
-        `Estimulação Sistêmica Computada! +${XP_REWARDS.COMPLETE_WORKOUT} XP\nDias de Continuidade: ${sequenciaDiasForca}`,
-        [{ text: 'Absorver' }]
+        `Estimulação Sistêmica Computada! +${XP_REWARDS.COMPLETE_WORKOUT} XP\nDias de Continuidade: ${sequenciaDiasForca}`
       );
     }
   }
@@ -132,6 +133,29 @@ export default function TelaTreinoFisico() {
     await saveWorkoutPlan(abstratoAtual);
     setPlanoBiomecanico(abstratoAtual);
   }
+
+  const handleNotificationConfirm = async (date: Date | null) => {
+    setShowTimePicker(false);
+    if (date && planoBiomecanico) {
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      const abstratoAtual = { ...planoBiomecanico };
+      abstratoAtual[diaMecanicoSelecionado] = { ...abstratoAtual[diaMecanicoSelecionado], time: timeStr };
+      await saveWorkoutPlan(abstratoAtual);
+      setPlanoBiomecanico(abstratoAtual);
+
+      const scheduledDate = new Date();
+      scheduledDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      
+      // Se a hora escolhida já passou hoje, agenda para amanhã (ou para o dia correspondente)
+      if (scheduledDate.getTime() < new Date().getTime() && obterChaveTemporalAtual() === diaMecanicoSelecionado) {
+        scheduledDate.setDate(scheduledDate.getDate() + 1);
+      }
+      
+      await scheduleWorkoutNotification(scheduledDate);
+      Alert.alert('Horário Definido', `Seu treino para ${rotuloCompletoDia} foi marcado para as ${timeStr}. Você será notificado!`);
+    }
+  };
 
   // Agrupador Morfológico Transversal
   const matrizMuscularAgrupada: Record<string, WorkoutExercise[]> = {};
@@ -157,10 +181,18 @@ export default function TelaTreinoFisico() {
       <View style={estilos.cabecalhoAtivo}>
         <Ionicons name="barbell" size={22} color={Colors.brandGreen} />
         <Text style={estilos.tituloOperacional}>Treino</Text>
+        <TouchableOpacity 
+          style={estilos.distintivoHorario} 
+          onPress={() => setShowTimePicker(true)}
+        >
+          <Ionicons name="time-outline" size={14} color={Colors.brandGreen} />
+          <Text style={estilos.textoDistintivoHorario}>
+            {volumeDiarioTrabalho?.time || 'Definir Horário'}
+          </Text>
+        </TouchableOpacity>
         {rotinaJaConcluida && (
           <View style={estilos.distintivoOperacaoConcluida}>
             <Ionicons name="checkmark-circle" size={14} color={Colors.brandGreen} />
-            <Text style={estilos.textoDistintivoConcluido}>Fadiga Computada</Text>
           </View>
         )}
       </View>
@@ -296,6 +328,14 @@ export default function TelaTreinoFisico() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <NotificationTimePicker 
+        visible={showTimePicker} 
+        title="Agendar Treino"
+        subtitle={`Defina o horário em que você deseja treinar na ${rotuloCompletoDia}.`}
+        cancelText="Cancelar"
+        onConfirm={handleNotificationConfirm} 
+      />
     </SafeAreaView>
   );
 }
@@ -310,16 +350,27 @@ const estilos = StyleSheet.create({
     gap: 10,
   },
   tituloOperacional: { ...Typography.h2, color: Colors.textPrimary, flex: 1 },
-  distintivoOperacaoConcluida: {
+  distintivoHorario: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.brandGreen + '20',
+    backgroundColor: Colors.brandGreen + '15',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.brandGreen + '30'
   },
-  textoDistintivoConcluido: { ...Typography.captionBold, color: Colors.brandGreen },
+  textoDistintivoHorario: { ...Typography.captionBold, color: Colors.brandGreen },
+  distintivoOperacaoConcluida: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandGreen + '20',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
   
   // Grade Vetorial do Seletor Perfeitamente Alocada (Desalinhamentos Sanados)
   agrupadorSeletorDias: {

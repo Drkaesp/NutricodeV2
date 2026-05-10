@@ -1,7 +1,13 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '@/src/context/AuthContext';
+import { registerBackgroundNotifications } from '@/src/services/notifications';
+import { useEffect } from 'react';
 
 export default function MainLayout() {
+  useEffect(() => {
+    registerBackgroundNotifications().catch(console.error);
+  }, []);
+
   return (
     <AuthProvider>
       <Stack

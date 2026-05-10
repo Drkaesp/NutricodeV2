@@ -110,6 +110,7 @@ export interface MealFood {
 
 export interface MealSlot {
   foods: MealFood[];
+  time?: string;
 }
 
 export interface DayMeals {
@@ -121,23 +122,23 @@ export interface DayMeals {
 
 export type WeeklyMealPlan = Record<string, DayMeals>;
 
-const emptyDayMeals: DayMeals = {
+const createEmptyDayMeals = (): DayMeals => ({
   cafe: { foods: [] },
   almoco: { foods: [] },
   lanche: { foods: [] },
   janta: { foods: [] },
-};
+});
 
 export async function getMealPlan(): Promise<WeeklyMealPlan> {
   const json = await AsyncStorage.getItem(MEAL_PLAN_KEY);
   return json ? JSON.parse(json) : {
-    seg: { ...emptyDayMeals },
-    ter: { ...emptyDayMeals },
-    qua: { ...emptyDayMeals },
-    qui: { ...emptyDayMeals },
-    sex: { ...emptyDayMeals },
-    sab: { ...emptyDayMeals },
-    dom: { ...emptyDayMeals },
+    seg: createEmptyDayMeals(),
+    ter: createEmptyDayMeals(),
+    qua: createEmptyDayMeals(),
+    qui: createEmptyDayMeals(),
+    sex: createEmptyDayMeals(),
+    sab: createEmptyDayMeals(),
+    dom: createEmptyDayMeals(),
   };
 }
 

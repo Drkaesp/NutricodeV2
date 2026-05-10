@@ -5,7 +5,6 @@ import { api } from '@/src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Image,
   KeyboardAvoidingView,
@@ -44,18 +43,13 @@ export default function LoginScreen() {
 
       if (data && data.token) {
         // Envia pro Context Auth salva o JWT internamente e busca os dados da API
-        const loggedUser = await login(data.token);
-        
-        // PURGA DOS DADOS ANTIGOS: Remove tabelas sujas (mock local)
-        try {
-          await AsyncStorage.multiRemove(['MEAL_PLAN_V1', 'WORKOUT_PLAN_V1']);
-        } catch (e) {
-          console.warn('Erro ao limpar cache antigo:', e);
-        }
+        const loggedUser = await login(data.token) as any;
         
         setMensagem({ texto: 'Login realizado com sucesso!', tipo: 'sucesso' });
         setTimeout(() => {
-          if (!loggedUser?.altura || !loggedUser?.peso || !loggedUser?.idade) {
+          // Verifica se o usuário já completou o onboarding (peso e altura salvos localmente ou via API)
+          const temDadosFisicos = loggedUser?.peso && loggedUser?.altura;
+          if (!temDadosFisicos) {
             router.replace('/(auth)/onboarding/page' as any);
           } else {
             router.replace('/(panel)/home/page' as any);

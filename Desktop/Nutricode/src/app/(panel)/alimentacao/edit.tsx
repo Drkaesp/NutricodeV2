@@ -43,22 +43,30 @@ export default function AlimentacaoEdit() {
 
   async function updateGrams(index: number, delta: number) {
     const updatedFoods = [...currentFoods];
-    const novaGrama = Math.max(10, updatedFoods[index].grams + delta); // Minímo 10g
-    const multiplicador = novaGrama / updatedFoods[index].grams;
+    const food = updatedFoods[index];
+    const gramasAntigos = food.grams;
+    const novaGrama = Math.max(10, gramasAntigos + delta); // Mínimo 10g
     
-    updatedFoods[index] = {
-      ...updatedFoods[index],
-      grams: novaGrama,
-      kcal: updatedFoods[index].kcal * multiplicador,
-      protein: updatedFoods[index].protein * multiplicador,
-      carbs: updatedFoods[index].carbs * multiplicador,
-      fat: updatedFoods[index].fat * multiplicador,
-    };
+    // Calcula macros proporcionais baseado nos valores por grama
+    // para evitar acúmulo de erros de arredondamento
+    if (gramasAntigos > 0) {
+      const fator = novaGrama / gramasAntigos;
+      updatedFoods[index] = {
+        ...food,
+        grams: novaGrama,
+        kcal: food.kcal * fator,
+        protein: food.protein * fator,
+        carbs: food.carbs * fator,
+        fat: food.fat * fator,
+      };
+    } else {
+      updatedFoods[index] = { ...food, grams: novaGrama };
+    }
     
     setCurrentFoods(updatedFoods);
     const plan = await getMealPlan();
     if (day && slot) {
-      (plan[day] as any)[slot] = { foods: updatedFoods };
+      (plan[day] as any)[slot] = { ...(plan[day] as any)[slot], foods: updatedFoods };
       await saveMealPlan(plan);
     }
   }

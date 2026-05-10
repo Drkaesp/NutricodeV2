@@ -45,6 +45,7 @@ export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
 export const XP_REWARDS = {
   COMPLETE_WORKOUT: 50,
   LOG_MEAL: 20,
+  COMPLETE_MEAL: 30,
   COMPLETE_WATER_GOAL: 30,
   DAILY_STREAK: 15,
   COMPLETE_ALL_DAILY: 100, // bonus for doing all 3 in a day
