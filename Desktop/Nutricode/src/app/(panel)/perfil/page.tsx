@@ -13,6 +13,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { getLevelFromXP, calculateDailyWaterGoal, RECOMMENDED_WORKOUTS, RecommendedWorkout } from '@/constants/GameData';
 import { getWorkoutPlan, saveWorkoutPlan, getTodayWater, WorkoutExercise } from '@/src/utils/storage';
 import { fetchExercisesFromApi } from '@/src/utils/api';
+import { api } from '@/src/services/api';
 
 /**
  * O Módulo Operacional Base do Perfil Integrado Biológico
@@ -69,6 +70,19 @@ export default function CentralBiometricaBase() {
     if(!modoEdicaoMutante) {
       setModoEdicaoMutante(true);
       return;
+    }
+
+    if (user?.id) {
+      try {
+        await api.updateUserInfo(user.id, {
+          height: Math.round(eixoVerticalCorporal),
+          weight: massaCorporalFisica
+        });
+        const today = new Date().toISOString().split('T')[0];
+        await api.logWeight(user.id, massaCorporalFisica, today);
+      } catch (e) {
+        console.error('Erro ao salvar biometria no backend:', e);
+      }
     }
 
     await updateUser({

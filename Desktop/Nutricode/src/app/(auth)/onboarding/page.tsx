@@ -63,6 +63,7 @@ export default function Onboarding() {
       // Atualiza backend INFO
       await api.updateUserInfo(user.id, {
         height: parseInt(altura),
+        weight: parseFloat(peso),
         birthDate,
         sex
       });

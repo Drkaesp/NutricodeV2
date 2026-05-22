@@ -3,6 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 import { addWater, saveWorkoutPlan, getWorkoutPlan, saveMealPlan, getMealPlan, getCurrentUser, saveCurrentUser } from '../utils/storage';
 import { XP_REWARDS } from '@/constants/GameData';
+import { api } from './api';
 
 // Background Task Name
 const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
@@ -74,6 +75,101 @@ export async function requestNotificationPermissions() {
   return true;
 }
 
+export async function handleNotificationAction(response: Notifications.NotificationResponse) {
+  const actionId = response.actionIdentifier;
+  const category = response.notification.request.content.categoryIdentifier;
+
+  if (actionId === Notifications.DEFAULT_ACTION_IDENTIFIER || actionId === 'dismiss') {
+    return;
+  }
+
+  // Load current user to add XP
+  let user = await getCurrentUser();
+  let xpToAdd = 0;
+  const today = new Date().toISOString().split('T')[0];
+
+  if (category === 'hydration') {
+    let volume = 0;
+    if (actionId === 'btn_250ml') volume = 250;
+    if (actionId === 'btn_500ml') volume = 500;
+    if (actionId === 'btn_1lt') volume = 1000;
+
+    if (volume > 0) {
+      const currentWater = await addWater(volume);
+      xpToAdd = XP_REWARDS.LOG_MEAL; // Using a small reward for hydration interaction
+      if (user?.id) {
+        try {
+          const peso = user.peso || 70;
+          const meta = peso * 35;
+          const completouAgora = currentWater >= meta;
+          const res = await api.logWater(user.id, volume, today, completouAgora);
+          if (res && res.xpEarned) {
+            xpToAdd = res.xpEarned;
+          }
+        } catch (e) {
+          console.error('Error logging water in background/foreground:', e);
+        }
+      }
+    }
+  } else if (category === 'workout' && actionId === 'btn_done') {
+    xpToAdd = XP_REWARDS.COMPLETE_WORKOUT;
+    
+    const plan = await getWorkoutPlan();
+    const hoje = new Date();
+    const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const diaKey = dias[hoje.getDay()];
+    
+    if (plan[diaKey]) {
+      plan[diaKey].completed = true;
+      await saveWorkoutPlan(plan);
+    }
+
+    if (user?.id) {
+      try {
+        const res = await api.logWorkout(user.id, 45, today, true);
+        if (res && res.xpEarned) {
+          xpToAdd = res.xpEarned;
+        }
+      } catch (e) {
+        console.error('Error logging workout in background/foreground:', e);
+      }
+    }
+  } else if (category === 'meal' && actionId === 'btn_done') {
+    xpToAdd = XP_REWARDS.COMPLETE_MEAL;
+    
+    const plan = await getMealPlan();
+    const hoje = new Date();
+    const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const diaKey = dias[hoje.getDay()];
+    
+    if (plan[diaKey]) {
+       const diaAtual = plan[diaKey] as any;
+       ['cafe', 'almoco', 'lanche', 'janta'].forEach(slot => {
+         if (diaAtual[slot]) {
+           diaAtual[slot] = { ...diaAtual[slot], completed: true };
+         }
+       });
+       await saveMealPlan(plan);
+    }
+
+    if (user?.id) {
+      try {
+        const res = await api.logDiet(user.id, 500, today, true);
+        if (res && res.xpEarned) {
+          xpToAdd = res.xpEarned;
+        }
+      } catch (e) {
+        console.error('Error logging diet in background/foreground:', e);
+      }
+    }
+  }
+
+  if (xpToAdd > 0 && user) {
+    user.totalXP = (user.totalXP || 0) + xpToAdd;
+    await saveCurrentUser(user);
+  }
+}
+
 // Background Task Definition
 TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => {
   if (error) {
@@ -82,62 +178,7 @@ TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => 
   }
   if (data) {
     const response = data as Notifications.NotificationResponse;
-    const actionId = response.actionIdentifier;
-    const category = response.notification.request.content.categoryIdentifier;
-
-    if (actionId === Notifications.DEFAULT_ACTION_IDENTIFIER || actionId === 'dismiss') {
-      return;
-    }
-
-    // Load current user to add XP
-    let user = await getCurrentUser();
-    let xpToAdd = 0;
-
-    if (category === 'hydration') {
-      let volume = 0;
-      if (actionId === 'btn_250ml') volume = 250;
-      if (actionId === 'btn_500ml') volume = 500;
-      if (actionId === 'btn_1lt') volume = 1000;
-
-      if (volume > 0) {
-        await addWater(volume);
-        xpToAdd = XP_REWARDS.LOG_MEAL; // Using a small reward for hydration interaction
-      }
-    } else if (category === 'workout' && actionId === 'btn_done') {
-      xpToAdd = XP_REWARDS.COMPLETE_WORKOUT;
-      
-      const plan = await getWorkoutPlan();
-      const hoje = new Date();
-      const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-      const diaKey = dias[hoje.getDay()];
-      
-      if (plan[diaKey]) {
-        plan[diaKey].completed = true;
-        await saveWorkoutPlan(plan);
-      }
-    } else if (category === 'meal' && actionId === 'btn_done') {
-      xpToAdd = XP_REWARDS.COMPLETE_MEAL;
-      
-      const plan = await getMealPlan();
-      const hoje = new Date();
-      const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-      const diaKey = dias[hoje.getDay()];
-      
-      if (plan[diaKey]) {
-         const diaAtual = plan[diaKey] as any;
-         ['cafe', 'almoco', 'lanche', 'janta'].forEach(slot => {
-           if (diaAtual[slot]) {
-             diaAtual[slot] = { ...diaAtual[slot], completed: true };
-           }
-         });
-         await saveMealPlan(plan);
-      }
-    }
-
-    if (xpToAdd > 0 && user) {
-      user.totalXP = (user.totalXP || 0) + xpToAdd;
-      await saveCurrentUser(user);
-    }
+    await handleNotificationAction(response);
   }
 });
 
@@ -190,10 +231,9 @@ export async function scheduleWorkoutNotification(date: Date) {
       sound: true,
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: date.getHours(),
       minute: date.getMinutes(),
-      repeats: true,
     },
   });
 }
@@ -215,10 +255,9 @@ export async function scheduleMealNotification(date: Date) {
       sound: true,
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: date.getHours(),
       minute: date.getMinutes(),
-      repeats: true,
     },
   });
 }

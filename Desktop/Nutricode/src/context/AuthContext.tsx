@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: actualUserId,
         nome: me.username,
         email: me.email,
-        peso: currentUser.peso,  // Peso é salvo localmente no onboarding
+        peso: info?.weight ?? currentUser.peso,
         altura: info?.height ?? currentUser.altura,
         idade: info?.age ?? currentUser.idade,
         genero: info?.sex === 'MALE' ? 'masculino' : info?.sex === 'FEMALE' ? 'feminino' : currentUser.genero,

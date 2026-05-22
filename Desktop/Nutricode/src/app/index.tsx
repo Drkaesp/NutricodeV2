@@ -47,8 +47,8 @@ export default function LoginScreen() {
         
         setMensagem({ texto: 'Login realizado com sucesso!', tipo: 'sucesso' });
         setTimeout(() => {
-          // Verifica se o usuário já completou o onboarding (peso e altura salvos localmente ou via API)
-          const temDadosFisicos = loggedUser?.peso && loggedUser?.altura;
+          // Verifica se o usuário já completou o onboarding (peso ou altura salvos localmente ou via API)
+          const temDadosFisicos = loggedUser?.altura || loggedUser?.peso;
           if (!temDadosFisicos) {
             router.replace('/(auth)/onboarding/page' as any);
           } else {

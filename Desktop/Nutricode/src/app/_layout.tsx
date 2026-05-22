@@ -2,10 +2,21 @@ import { Stack } from 'expo-router';
 import { AuthProvider } from '@/src/context/AuthContext';
 import { registerBackgroundNotifications } from '@/src/services/notifications';
 import { useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
 
 export default function MainLayout() {
   useEffect(() => {
     registerBackgroundNotifications().catch(console.error);
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      import('@/src/services/notifications').then((module) => {
+        module.handleNotificationAction(response).catch(console.error);
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   return (

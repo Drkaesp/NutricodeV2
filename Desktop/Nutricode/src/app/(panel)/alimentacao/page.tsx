@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import { DAYS_OF_WEEK, MEAL_SLOTS } from '@/constants/GameData';
+import { DAYS_OF_WEEK, MEAL_SLOTS, XP_REWARDS } from '@/constants/GameData';
 import { getMealPlan, WeeklyMealPlan, MealFood } from '@/src/utils/storage';
 import { useAuth } from '@/src/context/AuthContext';
 import { api } from '@/src/services/api';
@@ -24,7 +24,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
  */
 export default function TelaAlimentacao() {
   const roteadorNativo = useRouter();
-  const { user, refreshUserData } = useAuth();
+  const { user, refreshUserData, updateUser } = useAuth();
   const [diaSelecionado, setDiaSelecionado] = useState(obterChaveDiaAtual());
   const [planoAlimentacao, setPlanoAlimentacao] = useState<WeeklyMealPlan | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -111,6 +111,40 @@ export default function TelaAlimentacao() {
     
     // Update local state
     setPlanoAlimentacao(planoAtualizado);
+
+    // XP & API Sync
+    const today = new Date().toISOString().split('T')[0];
+    const estimatedCalories = calcularMatrizTotal(diaAtual[chaveRefeicao]?.foods || []).calorias || 350;
+
+    if (user) {
+      let xpEarned = XP_REWARDS.COMPLETE_MEAL;
+      
+      if (user.id) {
+        try {
+          const res = await api.logDiet(user.id, Math.round(estimatedCalories), today, true);
+          if (res && res.xpEarned) {
+            xpEarned = res.xpEarned;
+          }
+        } catch (e) {
+          console.error('Erro ao logar refeição no backend:', e);
+        }
+      } else {
+        // Fallback sem API: atualizar XP localmente
+        const currentXP = user.totalXP || 0;
+        await updateUser({ totalXP: currentXP + xpEarned });
+      }
+      
+      import('react-native').then(rn => {
+        rn.Alert.alert(
+          '🥗 Refeição Consumida!',
+          `Nutrientes absorvidos com sucesso! +${xpEarned} XP adicionado ao seu progresso.`
+        );
+      });
+
+      if (user.id) {
+        await refreshUserData();
+      }
+    }
   };
 
   /**
@@ -309,7 +343,7 @@ export default function TelaAlimentacao() {
                 try {
                   const res = await api.logDiet(user.id, Math.round(totaisDiarios.calorias), hojeData, true);
                   if (res.xpEarned > 0) {
-                    import('react-native').then(rn => rn.Alert.alert("🎉 Parabéns!", `Dia de alimentação finalizado com sucesso! +${res.xpEarned} XP absorvido.\nStreak Atual: ${res.streak}`));
+                    import('react-native').then(rn => rn.Alert.alert("🎉 Parabéns!", `Dia de alimentação finalizado com sucesso! +${res.xpEarned} XP\nStreak Atual: ${res.streak ?? user?.streak ?? 0} dias`));
                   }
                   await refreshUserData();
                 } catch(e) {

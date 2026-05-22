@@ -103,8 +103,8 @@ export default function TelaTreinoFisico() {
         const res = await api.logWorkout(user.id, estimatedDuration > 0 ? estimatedDuration : 45, hojeData, true);
         if (res.xpEarned > 0) {
           Alert.alert(
-            '🎉 Adaptação Metabólica Concluída!',
-            `Estimulação Sistêmica Computada! +${res.xpEarned} XP\nStreak Atual: ${res.streak}`
+            '🎉 Treino Concluído!',
+            `Parabéns! +${res.xpEarned} XP\nStreak Atual: ${res.streak ?? user?.streak ?? 0} dias`
           );
         }
         await refreshUserData();
@@ -311,7 +311,7 @@ export default function TelaTreinoFisico() {
             {!rotinaJaConcluida && (
               <TouchableOpacity style={estilos.disparadorCompletudeTotal} onPress={despacharConclusaoDoTreino} activeOpacity={0.8}>
                 <Ionicons name="checkmark-done" size={22} color={Colors.textOnAccent} />
-                <Text style={estilos.textoCompletudeTotal}>Consolidar Fadiga Diária (+{XP_REWARDS.COMPLETE_WORKOUT} XP)</Text>
+                <Text style={estilos.textoCompletudeTotal}>Concluir Treino (+XP)</Text>
               </TouchableOpacity>
             )}
 
@@ -320,7 +320,7 @@ export default function TelaTreinoFisico() {
                 <NutriMascot state="alegre" size={60} />
                 <View style={estilos.informacaoCartaoSintese}>
                   <Text style={estilos.tituloCartaoSintese}>Carga Total Finalizada! 🎉</Text>
-                  <Text style={estilos.subtituloCartaoSintese}>O ecossistema recompensou o usuário com {XP_REWARDS.COMPLETE_WORKOUT} pontos de processamento metabólico puro.</Text>
+                  <Text style={estilos.subtituloCartaoSintese}>Treino do dia concluído com sucesso! Pontos de experiência foram adicionados ao seu progresso.</Text>
                 </View>
               </View>
             )}
